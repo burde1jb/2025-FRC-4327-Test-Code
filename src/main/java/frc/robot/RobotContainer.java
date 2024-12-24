@@ -78,7 +78,7 @@ public class RobotContainer {
     private final SendableChooser<Command> autoChooser;
 
     public RobotContainer() {
-      autoChooser = AutoBuilder.buildAutoChooser();
+      autoChooser = AutoBuilder.buildAutoChooser("Auto Calibration 2m");
       SmartDashboard.putData("Auto Mode", autoChooser);
 
     this.iSub = new IntakeSubsystem();
