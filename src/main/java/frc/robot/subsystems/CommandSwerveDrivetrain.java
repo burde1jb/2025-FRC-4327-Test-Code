@@ -13,14 +13,17 @@ import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.PathPlannerAuto;
+import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Notifier;
@@ -128,10 +131,10 @@ public class CommandSwerveDrivetrain extends SwerveDrivetrain implements Subsyst
      */
     public CommandSwerveDrivetrain(SwerveDrivetrainConstants drivetrainConstants, SwerveModuleConstants... modules) {
         super(drivetrainConstants, modules);
+        configureAutoBuilder();
         if (Utils.isSimulation()) {
             startSimThread();
         }
-        configureAutoBuilder();
     }
 
     /**
@@ -149,10 +152,10 @@ public class CommandSwerveDrivetrain extends SwerveDrivetrain implements Subsyst
      */
     public CommandSwerveDrivetrain(SwerveDrivetrainConstants drivetrainConstants, double OdometryUpdateFrequency, SwerveModuleConstants... modules) {
         super(drivetrainConstants, OdometryUpdateFrequency, modules);
+        configureAutoBuilder();
         if (Utils.isSimulation()) {
             startSimThread();
         }
-        configureAutoBuilder();
     }
 
     /**
@@ -175,13 +178,14 @@ public class CommandSwerveDrivetrain extends SwerveDrivetrain implements Subsyst
             Matrix<N3, N1> odometryStandardDeviation, Matrix<N3, N1> visionStandardDeviation,
             SwerveModuleConstants... modules) {
         super(drivetrainConstants, odometryUpdateFrequency, odometryStandardDeviation, visionStandardDeviation, modules);
+        configureAutoBuilder();
         if (Utils.isSimulation()) {
             startSimThread();
         }
-        configureAutoBuilder();
     }
 
-    private void configureAutoBuilder() {
+
+    public void configureAutoBuilder() {
         try {
             var config = RobotConfig.fromGUISettings();
             AutoBuilder.configure(
@@ -200,7 +204,7 @@ public class CommandSwerveDrivetrain extends SwerveDrivetrain implements Subsyst
                     // PID constants for rotation
                     new PIDConstants(7, 0, 0)
                 ),
-                config,
+                RobotConfig.fromGUISettings(),
                 // Assume the path needs to be flipped for Red vs Blue, this is normally the case
                 () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
                 this // Subsystem for requirements

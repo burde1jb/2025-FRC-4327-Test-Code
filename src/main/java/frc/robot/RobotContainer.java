@@ -51,6 +51,13 @@ public class RobotContainer {
     private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
     private double MaxAngularRate = RotationsPerSecond.of(0.75).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity
 
+    private final CommandJoystick joystick = new CommandJoystick(0);
+    private final Joystick joystick3 = new Joystick(0);
+    private final CommandXboxController driver2 = new CommandXboxController(1);
+    private final XboxController driver3 = new XboxController(1);
+
+    public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+
     /* Setting up bindings for necessary control of the swerve drive platform */
     private final SwerveRequest.FieldCentric drive = new SwerveRequest.FieldCentric()
             .withDeadband(MaxSpeed * 0.1).withRotationalDeadband(MaxAngularRate * 0.1) // Add a 10% deadband
@@ -60,13 +67,6 @@ public class RobotContainer {
 
     private final Telemetry logger = new Telemetry(MaxSpeed);
 
-    private final CommandJoystick joystick = new CommandJoystick(0);
-    private final Joystick joystick3 = new Joystick(0);
-    private final CommandXboxController driver2 = new CommandXboxController(1);
-    private final XboxController driver3 = new XboxController(1);
-
-    public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
-
     private final IntakeSubsystem iSub;
     private final WristSubsystem wSub;
     private final VisionSubsystem vSub;
@@ -75,11 +75,39 @@ public class RobotContainer {
     private final NewShooterSubsystem nsSub;
     private final LEDSubsystem lSub;
 
+    private void configureBindings() {
+      // Note that X is defined as forward according to WPILib convention,
+      // and Y is defined as to the left according to WPILib convention.
+      drivetrain.setDefaultCommand(
+          // Drivetrain will execute this command periodically
+          drivetrain.applyRequest(() ->
+              drive.withVelocityX(-joystick.getRawAxis(4) * MaxSpeed) // Drive forward with negative Y (forward)
+                  .withVelocityY(joystick.getRawAxis(3) * MaxSpeed) // Drive left with negative X (left)
+                  .withRotationalRate(-joystick.getRawAxis(0) * MaxAngularRate) // Drive counterclockwise with negative X (left)
+          )
+      );
+
+      joystick.button(13).whileTrue(drivetrain.applyRequest(() -> brake));
+      joystick.button(14).whileTrue(drivetrain.applyRequest(() ->
+          point.withModuleDirection(new Rotation2d(-joystick.getRawAxis(3), -joystick.getRawAxis(4)))
+      ));
+
+      // Run SysId routines when holding back/start and X/Y.
+      // Note that each routine should be run exactly once in a single log.
+      joystick.button(1).and(joystick.button(12)).whileTrue(drivetrain.sysIdDynamic(Direction.kForward));
+      joystick.button(1).and(joystick.button(11)).whileTrue(drivetrain.sysIdDynamic(Direction.kReverse));
+      joystick.button(3).and(joystick.button(12)).whileTrue(drivetrain.sysIdQuasistatic(Direction.kForward));
+      joystick.button(3).and(joystick.button(11)).whileTrue(drivetrain.sysIdQuasistatic(Direction.kReverse));
+
+      // reset the field-centric heading on left bumper press
+      joystick.button(13).onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
+
+      drivetrain.registerTelemetry(logger::telemeterize);
+  } 
+
     private final SendableChooser<Command> autoChooser;
 
     public RobotContainer() {
-      autoChooser = AutoBuilder.buildAutoChooser("Auto Calibration 2m");
-      SmartDashboard.putData("Auto Mode", autoChooser);
 
     this.iSub = new IntakeSubsystem();
     this.wSub = new WristSubsystem();
@@ -109,6 +137,9 @@ public class RobotContainer {
     NamedCommands.registerCommand("AutonTiltLongCommand", new AutonTiltLongCommand(nsSub));
     NamedCommands.registerCommand("AutonTiltShortCommand", new AutonTiltShortCommand(nsSub));
 
+    autoChooser = AutoBuilder.buildAutoChooser("Auto Calibration 2m");
+    SmartDashboard.putData("Auto Mode", autoChooser);
+
     iSub.setDefaultCommand(new IntakeCommand(iSub, driver3, joystick3));
     // iSub.setDefaultCommand(new IntakeCommand(iSub, driver2, joystick));
     // vSub.setDefaultCommand(new VisionCommand);
@@ -117,52 +148,22 @@ public class RobotContainer {
     // sSub.setDefaultCommand(new ShooterCommand(sSub, driver2));
     nsSub.setDefaultCommand(new NewShooterCommand(nsSub, driver3, joystick3));
     lSub.setDefaultCommand(new LEDCommand(lSub, driver3, nsSub, iSub));
-    drivetrain.setDefaultCommand(
-            // Drivetrain will execute this command periodically
-            drivetrain.applyRequest(() ->
-                drive.withVelocityX(-joystick.getRawAxis(4) * MaxSpeed) // Drive forward with negative Y (forward)
-                    .withVelocityY(-joystick.getRawAxis(3) * MaxSpeed) // Drive left with negative X (left)
-                    .withRotationalRate(-joystick.getRawAxis(0) * MaxAngularRate) // Drive counterclockwise with negative X (left)
-            )
-        );
+    // drivetrain.setDefaultCommand(
+    //         // Drivetrain will execute this command periodically
+    //         drivetrain.applyRequest(() ->
+    //             drive.withVelocityX(-joystick.getRawAxis(4) * MaxSpeed) // Drive forward with negative Y (forward)
+    //                 .withVelocityY(-joystick.getRawAxis(3) * MaxSpeed) // Drive left with negative X (left)
+    //                 .withRotationalRate(-joystick.getRawAxis(0) * MaxAngularRate) // Drive counterclockwise with negative X (left)
+    //         )
+    //     );
 
-        joystick.button(13).whileTrue(drivetrain.applyRequest(() -> brake));
-        joystick.button(14).whileTrue(drivetrain.applyRequest(() ->
-            point.withModuleDirection(new Rotation2d(-joystick.getRawAxis(3), -joystick.getRawAxis(4)))
-        ));
+    //     joystick.button(13).whileTrue(drivetrain.applyRequest(() -> brake));
+    //     joystick.button(14).whileTrue(drivetrain.applyRequest(() ->
+    //         point.withModuleDirection(new Rotation2d(-joystick.getRawAxis(3), -joystick.getRawAxis(4)))
+    //     ));
 
       configureBindings();
     }
-
-    private void configureBindings() {
-        // Note that X is defined as forward according to WPILib convention,
-        // and Y is defined as to the left according to WPILib convention.
-        drivetrain.setDefaultCommand(
-            // Drivetrain will execute this command periodically
-            drivetrain.applyRequest(() ->
-                drive.withVelocityX(-joystick.getRawAxis(4) * MaxSpeed) // Drive forward with negative Y (forward)
-                    .withVelocityY(-joystick.getRawAxis(3) * MaxSpeed) // Drive left with negative X (left)
-                    .withRotationalRate(-joystick.getRawAxis(0) * MaxAngularRate) // Drive counterclockwise with negative X (left)
-            )
-        );
-
-        joystick.button(13).whileTrue(drivetrain.applyRequest(() -> brake));
-        joystick.button(14).whileTrue(drivetrain.applyRequest(() ->
-            point.withModuleDirection(new Rotation2d(-joystick.getRawAxis(3), -joystick.getRawAxis(4)))
-        ));
-
-        // Run SysId routines when holding back/start and X/Y.
-        // Note that each routine should be run exactly once in a single log.
-        joystick.button(1).and(joystick.button(12)).whileTrue(drivetrain.sysIdDynamic(Direction.kForward));
-        joystick.button(1).and(joystick.button(11)).whileTrue(drivetrain.sysIdDynamic(Direction.kReverse));
-        joystick.button(3).and(joystick.button(12)).whileTrue(drivetrain.sysIdQuasistatic(Direction.kForward));
-        joystick.button(3).and(joystick.button(11)).whileTrue(drivetrain.sysIdQuasistatic(Direction.kReverse));
-
-        // reset the field-centric heading on left bumper press
-        joystick.button(0).onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
-
-        drivetrain.registerTelemetry(logger::telemeterize);
-    } 
 
   public Command getAutonomousCommand() {
     /* First put the drivetrain into auto run mode, then run the auto */
